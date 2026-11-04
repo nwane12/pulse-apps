@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PulseInvest | Maksymalna Analiza Spółek Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    .dark .bg-white { background-color: #1f2937; }
+    .signal-buy { background: #dcfce7; color: #166534; }
+    .signal-sell { background: #fee2e2; color: #991b1b; }
+    .signal-hold { background: #fef3c7; color: #92400e; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
+  <header class="bg-white dark:bg-gray-800 shadow-lg sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center text-white text-2xl"><i class="fas fa-chart-line"></i></div>
+        <div>
+          <h1 class="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">PulseInvest</h1>
+          <p class="text-xs text-gray-500">Analiza · Sygnały · Portfolio · Screening · Porównanie · Notatki</p>
+        </div>
+      </div>
+      <button id="themeToggle" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><i class="fas fa-moon dark:hidden"></i><i class="fas fa-sun hidden dark:inline"></i></button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-8 space-y-8">
+    <!-- Search + Range -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+      <div class="flex flex-col md:flex-row gap-4">
+        <input id="tickerInput" type="text" placeholder="Ticker (AAPL, PKO.WA, CDR.WA, TSLA, ^GSPC...)" class="flex-1 px-4 py-3 rounded-xl border dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+        <select id="rangeSelect" class="px-4 py-3 rounded-xl border dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+          <option value="1mo">1 miesiąc</option>
+          <option value="3mo" selected>3 miesiące</option>
+          <option value="6mo">6 miesięcy</option>
+          <option value="1y">1 rok</option>
+          <option value="2y">2 lata</option>
+          <option value="5y">5 lat</option>
+          <option value="max">Max</option>
+        </select>
+        <button id="analyzeBtn" class="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl">Analizuj</button>
+      </div>
+      <div class="mt-3 flex flex-wrap gap-2 text-xs">
+        <span class="text-gray-500">Szybkie:</span>
+        <button onclick="quick('AAPL')" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">AAPL</button>
+        <button onclick="quick('TSLA')" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">TSLA</button>
+        <button onclick="quick('PKO.WA')" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">PKO</button>
+        <button onclick="quick('CDR.WA')" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">CDR</button>
+        <button onclick="quick('WIG20.WA')" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">WIG20</button>
+        <button onclick="quick('^GSPC')" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">S&P500</button>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">Dane: Yahoo Finance (proxy.cors.dev). Obsługuje US, GPW (.WA), indeksy, FX, commodities.</p>
+    </div>
+
+    <div id="results" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+          <h2 id="companyName" class="text-2xl font-bold mb-1">--</h2>
+          <div id="price" class="text-4xl font-bold text-emerald-600">--</div>
+          <div id="change" class="text-lg mb-2">--</div>
+          <div id="signal" class="p-4 rounded-xl text-center font-bold text-lg mb-4">--</div>
+          <div id="metrics" class="space-y-1 text-sm mb-4"></div>
+          <div class="flex gap-2">
+            <button id="addWatch" class="flex-1 py-2 border border-emerald-600 text-emerald-600 rounded-xl hover:bg-emerald-50 text-sm">★ Watchlista</button>
+            <button id="addPortfolio" class="flex-1 py-2 border border-blue-600 text-blue-600 rounded-xl hover:bg-blue-50 text-sm">+ Portfolio</button>
+          </div>
+          <div class="mt-3">
+            <textarea id="notes" placeholder="Notatki do tickera..." class="w-full text-xs p-2 rounded border dark:border-gray-700 bg-gray-50 dark:bg-gray-900" rows="2"></textarea>
+            <button id="saveNotes" class="text-xs text-indigo-600 mt-1">Zapisz notatki</button>
+          </div>
+        </div>
+        <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold">Wykres ceny</h3>
+            <div class="flex gap-2 text-xs">
+              <label><input type="checkbox" id="showMA" checked> MA</label>
+              <label><input type="checkbox" id="showBB"> BB</label>
+              <label><input type="checkbox" id="showVol"> Volume</label>
+            </div>
+          </div>
+          <canvas id="priceChart" height="160"></canvas>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+          <h3 class="font-bold mb-3">Wskaźniki techniczne</h3>
+          <div id="techMetrics" class="space-y-2 text-sm"></div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+          <h3 class="font-bold mb-3">Ryzyko & Statystyki</h3>
+          <div id="riskMetrics" class="space-y-1 text-sm"></div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+          <h3 class="font-bold mb-3">Szczegóły sygnału</h3>
+          <div id="signalDetails" class="text-sm space-y-1"></div>
+          <p class="text-xs text-gray-500 mt-4">Sygnały oparte na MA, RSI, MACD, BB, Stochastic. Nie stanowią rekomendacji inwestycyjnej.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Screening -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+      <h3 class="font-bold text-lg mb-4"><i class="fas fa-filter mr-2"></i> Screening (wiele tickerów)</h3>
+      <textarea id="screenTickers" placeholder="Tickery po przecinku lub nowej linii: AAPL, MSFT, PKO.WA, CDR.WA..." class="w-full p-3 rounded-lg border dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm" rows="3"></textarea>
+      <button id="screenBtn" class="mt-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm">Skanuj sygnały</button>
+      <div id="screening" class="mt-4 overflow-x-auto text-sm"></div>
+    </div>
+
+    <!-- Comparison -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+      <h3 class="font-bold text-lg mb-4"><i class="fas fa-balance-scale mr-2"></i> Porównanie spółek</h3>
+      <div class="flex gap-2 mb-4">
+        <input id="comp1" placeholder="Ticker 1" class="flex-1 px-3 py-2 rounded-lg border dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+        <input id="comp2" placeholder="Ticker 2" class="flex-1 px-3 py-2 rounded-lg border dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+        <button id="compareBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Porównaj</button>
+      </div>
+      <div id="comparison" class="text-sm"></div>
+    </div>
+
+    <!-- Watchlist + Portfolio -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-bold text-lg"><i class="fas fa-star text-yellow-500 mr-2"></i> Watchlista</h3>
+          <button id="refreshWatch" class="text-xs text-emerald-600">Odśwież ceny</button>
+        </div>
+        <div id="watchlist">Brak.</div>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-bold text-lg"><i class="fas fa-wallet text-blue-500 mr-2"></i> Portfolio (symulacja)</h3>
+          <button id="refreshPort" class="text-xs text-blue-600">Aktualizuj P&L</button>
+        </div>
+        <div id="portfolio">Brak pozycji.</div>
+        <div id="portTotal" class="mt-2 font-bold"></div>
+        <button id="clearPortfolio" class="mt-2 text-xs text-red-500">Wyczyść</button>
+      </div>
+    </div>
+
+    <div class="text-center text-sm text-gray-500 space-y-1">
+      <p>Źródła: Yahoo Finance + lokalne obliczenia techniczne. Hostuj na GitHub Pages / Netlify / Cloudflare Pages.</p>
+      <p>Wersja maksymalna: screening, notatki, ryzyko (volatility, drawdown), Stochastic, live portfolio.</p>
+    </div>
+  </main>
+
+  <script>
+    const tickerInput = document.getElementById('tickerInput');
+    const rangeSelect = document.getElementById('rangeSelect');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const results = document.getElementById('results');
+    let chart = null;
+    let lastData = null;
+    let currentTicker = '';
+
+    // Theme
+    if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+    document.getElementById('themeToggle').onclick = () => {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    };
+
+    function getWatch() { return JSON.parse(localStorage.getItem('pulseWatch') || '[]'); }
+    function getPortfolio() { return JSON.parse(localStorage.getItem('pulsePortfolio') || '[]'); }
+    function getNotes() { return JSON.parse(localStorage.getItem('pulseNotes') || '{}'); }
+
+    function renderWatch() {
+      const list = getWatch();
+      document.getElementById('watchlist').innerHTML = list.length ? list.map(t => `<div class="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded mb-1 text-sm">
+        <span class="font-mono">${t}</span>
+        <div class="flex gap-2">
+          <span class="watch-price text-xs" data-t="${t}">--</span>
+          <button onclick="analyzeTicker('${t}')" class="text-emerald-600 text-xs">Analizuj</button>
+          <button onclick="removeWatch('${t}')" class="text-red-500 text-xs">×</button>
+        </div>
+      </div>`).join('') : 'Brak.';
+    }
+    function renderPortfolio() {
+      const list = getPortfolio();
+      document.getElementById('portfolio').innerHTML = list.length ? list.map((p,i) => `<div class="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded mb-1 text-sm">
+        <span>${p.ticker} @ ${p.price.toFixed(2)}</span>
+        <span class="port-pnl text-xs" data-i="${i}">--</span>
+        <button onclick="removePort(${i})" class="text-red-500 text-xs">Usuń</button>
+      </div>`).join('') : 'Brak pozycji.';
+    }
+    renderWatch(); renderPortfolio();
+
+    window.removeWatch = (t) => { const list = getWatch().filter(x => x !== t); localStorage.setItem('pulseWatch', JSON.stringify(list)); renderWatch(); };
+    window.removePort = (i) => { const list = getPortfolio(); list.splice(i,1); localStorage.setItem('pulsePortfolio', JSON.stringify(list)); renderPortfolio(); };
+    document.getElementById('clearPortfolio').onclick = () => { localStorage.removeItem('pulsePortfolio'); renderPortfolio(); document.getElementById('portTotal').textContent = ''; };
+
+    document.getElementById('addWatch').onclick = () => {
+      const t = tickerInput.value.trim().toUpperCase();
+      if (!t) return;
+      const list = getWatch();
+      if (!list.includes(t)) { list.push(t); localStorage.setItem('pulseWatch', JSON.stringify(list)); renderWatch(); }
+    };
+    document.getElementById('addPortfolio').onclick = () => {
+      const t = tickerInput.value.trim().toUpperCase();
+      const priceText = document.getElementById('price').textContent.split(' ')[0];
+      const price = parseFloat(priceText);
+      if (!t || isNaN(price)) return;
+      const list = getPortfolio();
+      list.push({ ticker: t, price, date: new Date().toISOString() });
+      localStorage.setItem('pulsePortfolio', JSON.stringify(list));
+      renderPortfolio();
+    };
+
+    document.getElementById('saveNotes').onclick = () => {
+      if (!currentTicker) return;
+      const notes = getNotes();
+      notes[currentTicker] = document.getElementById('notes').value;
+      localStorage.setItem('pulseNotes', JSON.stringify(notes));
+      alert('Notatki zapisane');
+    };
+
+    function loadNotes(ticker) {
+      const notes = getNotes();
+      document.getElementById('notes').value = notes[ticker] || '';
+    }
+
+    analyzeBtn.onclick = () => analyzeTicker(tickerInput.value.trim());
+    tickerInput.onkeypress = e => { if (e.key === 'Enter') analyzeBtn.click(); };
+    window.quick = (t) => { tickerInput.value = t; analyzeBtn.click(); };
+
+    async function analyzeTicker(ticker) {
+      if (!ticker) return;
+      ticker = ticker.toUpperCase();
+      currentTicker = ticker;
+      tickerInput.value = ticker;
+      results.classList.remove('hidden');
+      document.getElementById('signal').textContent = 'Ładowanie...';
+      loadNotes(ticker);
+
+      const range = rangeSelect.value;
+      try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${range}&interval=1d&events=div`;
+        const res = await fetch(`https://proxy.cors.dev/${url}`);
+        const data = await res.json();
+        const result = data.chart?.result?.[0];
+        if (!result) throw new Error('Brak danych');
+
+        lastData = result;
+        const meta = result.meta;
+        const quote = result.indicators.quote[0];
+        const closes = quote.close.filter(c => c != null);
+        const highs = quote.high.filter(c => c != null);
+        const lows = quote.low.filter(c => c != null);
+        const volumes = quote.volume.filter(c => c != null);
+
+        const price = meta.regularMarketPrice?.toFixed(2) || closes.at(-1)?.toFixed(2);
+        const prev = meta.chartPreviousClose || meta.previousClose;
+        const changePct = prev ? (((meta.regularMarketPrice - prev)/prev)*100).toFixed(2) : '--';
+        const changeColor = parseFloat(changePct) >= 0 ? 'text-green-600' : 'text-red-600';
+
+        document.getElementById('companyName').textContent = meta.longName || meta.shortName || meta.symbol || ticker;
+        document.getElementById('price').textContent = price + ' ' + (meta.currency || '');
+        document.getElementById('change').innerHTML = `<span class="${changeColor}">${changePct}%</span>`;
+
+        const vol = meta.regularMarketVolume ? (meta.regularMarketVolume/1e6).toFixed(1)+'M' : '--';
+        document.getElementById('metrics').innerHTML = `
+          <div class="flex justify-between"><span>Wolumen</span><span>${vol}</span></div>
+          <div class="flex justify-between"><span>52w High</span><span>${meta.fiftyTwoWeekHigh?.toFixed(2)||'--'}</span></div>
+          <div class="flex justify-between"><span>52w Low</span><span>${meta.fiftyTwoWeekLow?.toFixed(2)||'--'}</span></div>
+          <div class="flex justify-between"><span>Rynek</span><span>${meta.exchangeName||'--'}</span></div>
+          <div class="flex justify-between"><span>Zakres</span><span>${range}</span></div>
+        `;
+
+        // Indicators
+        const ma20 = avg(closes.slice(-20));
+        const ma50 = avg(closes.slice(-Math.min(50, closes.length)));
+        const ma200 = avg(closes.slice(-Math.min(200, closes.length)));
+        const rsi = calculateRSI(closes, 14);
+        const macd = calculateMACD(closes);
+        const bb = bollinger(closes, 20);
+        const stoch = stochastic(highs, lows, closes, 14);
+        const last = closes.at(-1);
+        const atr = calculateATR(highs, lows, closes, 14);
+
+        document.getElementById('techMetrics').innerHTML = `
+          <div class="flex justify-between"><span>MA20</span><span>${ma20.toFixed(2)}</span></div>
+          <div class="flex justify-between"><span>MA50</span><span>${ma50.toFixed(2)}</span></div>
+          <div class="flex justify-between"><span>MA200</span><span>${ma200.toFixed(2)}</span></div>
+          <div class="flex justify-between"><span>RSI(14)</span><span>${rsi.toFixed(1)}</span></div>
+          <div class="flex justify-between"><span>Stoch %K</span><span>${stoch.toFixed(1)}</span></div>
+          <div class="flex justify-between"><span>MACD</span><span>${macd.macd.toFixed(3)} / ${macd.signal.toFixed(3)}</span></div>
+          <div class="flex justify-between"><span>Bollinger</span><span>${bb.upper.toFixed(2)} / ${bb.lower.toFixed(2)}</span></div>
+          <div class="flex justify-between"><span>ATR(14)</span><span>${atr.toFixed(2)}</span></div>
+        `;
+
+        // Risk
+        const returns = closes.slice(1).map((c,i) => (c - closes[i]) / closes[i]);
+        const vola = Math.sqrt(returns.reduce((s,r)=>s+r*r,0)/returns.length) * Math.sqrt(252) * 100;
+        const maxDD = maxDrawdown(closes);
+        document.getElementById('riskMetrics').innerHTML = `
+          <div class="flex justify-between"><span>Volatility (ann.)</span><span>${vola.toFixed(1)}%</span></div>
+          <div class="flex justify-between"><span>Max Drawdown</span><span>${maxDD.toFixed(1)}%</span></div>
+          <div class="flex justify-between"><span>Obs. dni</span><span>${closes.length}</span></div>
+        `;
+
+        // Multi-factor signal
+        let score = 0;
+        const details = [];
+        if (last > ma50) { score += 2; details.push('✅ Cena > MA50'); } else { details.push('❌ Cena < MA50'); }
+        if (last > ma200) { score += 2; details.push('✅ Cena > MA200'); } else { details.push('❌ Cena < MA200'); }
+        if (last > ma20) { score += 1; details.push('✅ Cena > MA20'); } else { details.push('❌ Cena < MA20'); }
+        if (rsi < 30) { score += 2; details.push('✅ RSI oversold (<30)'); }
+        else if (rsi > 70) { score -= 2; details.push('❌ RSI overbought (>70)'); }
+        else { details.push('⚪ RSI neutralny'); }
+        if (stoch < 20) { score += 1; details.push('✅ Stoch oversold'); }
+        else if (stoch > 80) { score -= 1; details.push('❌ Stoch overbought'); }
+        if (macd.macd > macd.signal) { score += 1; details.push('✅ MACD bullish'); } else { details.push('❌ MACD bearish'); }
+        if (last < bb.lower) { score += 1; details.push('✅ Poniżej dolnego Bollinger'); }
+
+        let signal = 'HOLD', cls = 'signal-hold';
+        if (score >= 5) { signal = 'SILNE WEJŚCIE (BUY)'; cls = 'signal-buy'; }
+        else if (score >= 2) { signal = 'POTENCJALNE WEJŚCIE'; cls = 'signal-buy'; }
+        else if (score <= -3) { signal = 'POTENCJALNE WYJŚCIE (SELL)'; cls = 'signal-sell'; }
+
+        const sigEl = document.getElementById('signal');
+        sigEl.textContent = signal + ` (score: ${score})`;
+        sigEl.className = `p-4 rounded-xl text-center font-bold text-lg mb-4 ${cls}`;
+        document.getElementById('signalDetails').innerHTML = details.map(d => `<div>${d}</div>`).join('');
+
+        // Chart
+        updateChart();
+
+      } catch(e) {
+        document.getElementById('signal').textContent = 'Błąd danych: ' + e.message;
+        document.getElementById('signal').className = 'p-4 rounded-xl text-center font-bold text-lg mb-4 bg-red-100 text-red-800';
+        console.error(e);
+      }
+    }
+
+    function updateChart() {
+      if (!lastData) return;
+      const result = lastData;
+      const closes = result.indicators.quote[0].close.filter(c => c != null);
+      const volumes = result.indicators.quote[0].volume.filter(c => c != null);
+      const labels = result.timestamp.slice(-closes.length).map(t => new Date(t*1000).toLocaleDateString('pl-PL'));
+      const n = Math.min(150, closes.length);
+      const dataCloses = closes.slice(-n);
+      const dataLabels = labels.slice(-n);
+
+      const datasets = [
+        { label: 'Cena', data: dataCloses, borderColor: '#10b981', tension: 0.1, pointRadius: 0, yAxisID: 'y' }
+      ];
+      if (document.getElementById('showMA').checked) {
+        datasets.push({ label: 'MA20', data: dataCloses.map((_,i,arr) => avg(arr.slice(Math.max(0,i-19), i+1))), borderColor: '#f59e0b', borderDash: [5,5], pointRadius: 0, yAxisID: 'y' });
+        datasets.push({ label: 'MA50', data: dataCloses.map((_,i,arr) => avg(arr.slice(Math.max(0,i-49), i+1))), borderColor: '#3b82f6', borderDash: [5,5], pointRadius: 0, yAxisID: 'y' });
+      }
+      if (document.getElementById('showBB').checked) {
+        const bbData = dataCloses.map((_,i,arr) => {
+          const slice = arr.slice(Math.max(0,i-19), i+1);
+          const m = avg(slice);
+          const std = Math.sqrt(slice.reduce((s,x)=>s+(x-m)**2,0)/slice.length) || 0;
+          return m + 2*std;
+        });
+        datasets.push({ label: 'BB Upper', data: bbData, borderColor: '#a855f7', borderDash: [2,2], pointRadius: 0, yAxisID: 'y' });
+      }
+      if (document.getElementById('showVol').checked) {
+        datasets.push({ label: 'Volume', data: volumes.slice(-n), borderColor: '#94a3b8', backgroundColor: 'rgba(148,163,184,0.3)', type: 'bar', yAxisID: 'y1', pointRadius: 0 });
+      }
+
+      if (chart) chart.destroy();
+      chart = new Chart(document.getElementById('priceChart'), {
+        type: 'line',
+        data: { labels: dataLabels, datasets },
+        options: { 
+          responsive: true, 
+          plugins: { legend: { display: true } }, 
+          scales: { 
+            x: { display: false },
+            y: { position: 'left' },
+            y1: { position: 'right', display: document.getElementById('showVol').checked, grid: { drawOnChartArea: false } }
+          } 
+        }
+      });
+    }
+
+    document.getElementById('showMA').onchange = updateChart;
+    document.getElementById('showBB').onchange = updateChart;
+    document.getElementById('showVol').onchange = updateChart;
+
+    async function compare() {
+      const t1 = document.getElementById('comp1').value.trim().toUpperCase();
+      const t2 = document.getElementById('comp2').value.trim().toUpperCase();
+      if (!t1 || !t2) return;
+      document.getElementById('comparison').innerHTML = 'Ładowanie...';
+      try {
+        const [d1, d2] = await Promise.all([
+          fetch(`https://proxy.cors.dev/https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(t1)}?range=3mo&interval=1d`).then(r=>r.json()),
+          fetch(`https://proxy.cors.dev/https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(t2)}?range=3mo&interval=1d`).then(r=>r.json())
+        ]);
+        const p1 = d1.chart?.result?.[0]?.meta?.regularMarketPrice;
+        const p2 = d2.chart?.result?.[0]?.meta?.regularMarketPrice;
+        const c1 = d1.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(Boolean) || [];
+        const c2 = d2.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(Boolean) || [];
+        const perf1 = c1.length > 1 ? ((c1.at(-1)/c1[0]-1)*100).toFixed(1) : '--';
+        const perf2 = c2.length > 1 ? ((c2.at(-1)/c2[0]-1)*100).toFixed(1) : '--';
+        const corr = correlation(c1, c2);
+        document.getElementById('comparison').innerHTML = `
+          <div class="grid grid-cols-2 gap-4">
+            <div><strong>${t1}</strong><br>Cena: ${p1?.toFixed(2)}<br>Zmiana 3m: ${perf1}%</div>
+            <div><strong>${t2}</strong><br>Cena: ${p2?.toFixed(2)}<br>Zmiana 3m: ${perf2}%</div>
+          </div>
+          <div class="mt-2">Korelacja (przybliżona): ${corr.toFixed(2)}</div>
+        `;
+      } catch(e) { document.getElementById('comparison').textContent = 'Błąd porównania'; }
+    }
+    document.getElementById('compareBtn').onclick = compare;
+
+    // Screening
+    document.getElementById('screenBtn').onclick = async () => {
+      const raw = document.getElementById('screenTickers').value;
+      const tickers = [...new Set(raw.split(/[,\n\s]+/).map(t => t.trim().toUpperCase()).filter(Boolean))].slice(0, 20);
+      if (!tickers.length) return;
+      document.getElementById('screening').innerHTML = 'Skanowanie...';
+      let html = '<table class="w-full text-left"><tr class="border-b"><th>Ticker</th><th>Cena</th><th>RSI</th><th>Score</th><th>Sygnał</th></tr>';
+      for (const t of tickers) {
+        try {
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(t)}?range=6mo&interval=1d`;
+          const res = await fetch(`https://proxy.cors.dev/${url}`);
+          const data = await res.json();
+          const result = data.chart?.result?.[0];
+          if (!result) continue;
+          const closes = result.indicators.quote[0].close.filter(Boolean);
+          const price = result.meta.regularMarketPrice?.toFixed(2);
+          const rsi = calculateRSI(closes, 14);
+          const ma50 = avg(closes.slice(-50));
+          const last = closes.at(-1);
+          let score = 0;
+          if (last > ma50) score += 2;
+          if (rsi < 30) score += 2; else if (rsi > 70) score -= 2;
+          const sig = score >= 3 ? 'BUY' : score <= -1 ? 'SELL' : 'HOLD';
+          html += `<tr class="border-b"><td class="font-mono">${t}</td><td>${price}</td><td>${rsi.toFixed(0)}</td><td>${score}</td><td class="${sig==='BUY'?'text-green-600':sig==='SELL'?'text-red-600':''}">${sig}</td></tr>`;
+        } catch(e) { html += `<tr><td>${t}</td><td colspan="4">Błąd</td></tr>`; }
+      }
+      html += '</table>';
+      document.getElementById('screening').innerHTML = html;
+    };
+
+    // Watchlist & Portfolio refresh
+    async function fetchPrice(ticker) {
+      try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1d&interval=1d`;
+        const res = await fetch(`https://proxy.cors.dev/${url}`);
+        const data = await res.json();
+        return data.chart?.result?.[0]?.meta?.regularMarketPrice;
+      } catch(e) { return null; }
+    }
+
+    document.getElementById('refreshWatch').onclick = async () => {
+      const list = getWatch();
+      for (const t of list) {
+        const p = await fetchPrice(t);
+        const el = document.querySelector(`.watch-price[data-t="${t}"]`);
+        if (el && p) el.textContent = p.toFixed(2);
+      }
+    };
+
+    document.getElementById('refreshPort').onclick = async () => {
+      const list = getPortfolio();
+      let totalCost = 0, totalValue = 0;
+      for (let i = 0; i < list.length; i++) {
+        const p = list[i];
+        const curr = await fetchPrice(p.ticker);
+        const el = document.querySelector(`.port-pnl[data-i="${i}"]`);
+        if (curr && el) {
+          const pnl = ((curr - p.price) / p.price * 100).toFixed(1);
+          el.textContent = `${pnl}%`;
+          el.className = `port-pnl text-xs ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`;
+          totalCost += p.price;
+          totalValue += curr;
+        }
+      }
+      if (totalCost > 0) {
+        const totalPnl = ((totalValue - totalCost) / totalCost * 100).toFixed(1);
+        document.getElementById('portTotal').innerHTML = `Łączny P&L: <span class="${totalPnl>=0?'text-green-600':'text-red-600'}">${totalPnl}%</span>`;
+      }
+    };
+
+    // Utils
+    function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+    function calculateRSI(closes, period=14) {
+      if (closes.length < period+1) return 50;
+      let gains=0, losses=0;
+      for (let i=closes.length-period; i<closes.length; i++) {
+        const d = closes[i]-closes[i-1];
+        if (d>0) gains+=d; else losses-=d;
+      }
+      const ag = gains/period, al = losses/period;
+      return al===0 ? 100 : 100 - 100/(1+ag/al);
+    }
+    function calculateMACD(closes) {
+      const ema12 = ema(closes,12), ema26 = ema(closes,26);
+      const macdLine = ema12.at(-1) - ema26.at(-1);
+      const signal = ema([macdLine],9).at(-1) || macdLine;
+      return { macd: macdLine, signal };
+    }
+    function ema(arr, period) {
+      if (!arr.length) return [];
+      const k = 2/(period+1);
+      let e = arr[0];
+      const res = [e];
+      for (let i=1; i<arr.length; i++) { e = arr[i]*k + e*(1-k); res.push(e); }
+      return res;
+    }
+    function bollinger(closes, period=20) {
+      const slice = closes.slice(-period);
+      const m = avg(slice);
+      const std = Math.sqrt(slice.reduce((s,x)=>s+(x-m)**2,0)/slice.length);
+      return { upper: m+2*std, lower: m-2*std, mid: m };
+    }
+    function stochastic(highs, lows, closes, period=14) {
+      if (closes.length < period) return 50;
+      const h = Math.max(...highs.slice(-period));
+      const l = Math.min(...lows.slice(-period));
+      const c = closes.at(-1);
+      return h === l ? 50 : ((c - l) / (h - l)) * 100;
+    }
+    function calculateATR(highs, lows, closes, period=14) {
+      if (closes.length < period + 1) return 0;
+      let trSum = 0;
+      for (let i = closes.length - period; i < closes.length; i++) {
+        const tr = Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1]));
+        trSum += tr;
+      }
+      return trSum / period;
+    }
+    function maxDrawdown(closes) {
+      let max = closes[0], dd = 0;
+      for (const c of closes) {
+        if (c > max) max = c;
+        const d = (max - c) / max * 100;
+        if (d > dd) dd = d;
+      }
+      return dd;
+    }
+    function correlation(a, b) {
+      const n = Math.min(a.length, b.length);
+      if (n < 2) return 0;
+      const ma = avg(a.slice(-n)), mb = avg(b.slice(-n));
+      let num = 0, da = 0, db = 0;
+      for (let i = 0; i < n; i++) {
+        const da_i = a[a.length-n+i] - ma;
+        const db_i = b[b.length-n+i] - mb;
+        num += da_i * db_i;
+        da += da_i * da_i;
+        db += db_i * db_i;
+      }
+      return da && db ? num / Math.sqrt(da * db) : 0;
+    }
+
+    window.analyzeTicker = analyzeTicker;
+  </script>
+</body>
+</html>

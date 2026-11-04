@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PulseNews | Maksymalna Wersja Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .card-hover { transition: all 0.3s ease; }
+    .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+    .category-btn.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .dark .bg-white { background-color: #1f2937; }
+    .dark .text-gray-800 { color: #f9fafb; }
+    .sentiment-pos { background: #dcfce7; color: #166534; }
+    .sentiment-neg { background: #fee2e2; color: #991b1b; }
+    .sentiment-neu { background: #f3f4f6; color: #374151; }
+    .dark .sentiment-neu { background: #374151; color: #d1d5db; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors">
+  <header class="bg-white dark:bg-gray-800 shadow-lg sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-2xl font-bold">
+          <i class="fas fa-globe-americas"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">PulseNews</h1>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Finanse · Gospodarka · Polityka · Geopolityka · Technologie · Rynki</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <span id="savedCount" class="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded-full">0</span>
+        <button id="themeToggle" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><i class="fas fa-moon dark:hidden"></i><i class="fas fa-sun hidden dark:inline"></i></button>
+        <button id="refreshBtn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Odśwież"><i class="fas fa-sync-alt"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-16 z-40">
+    <div class="max-w-7xl mx-auto px-4 py-3 overflow-x-auto">
+      <div class="flex space-x-2 min-w-max" id="categoryNav"></div>
+    </div>
+  </nav>
+
+  <div class="max-w-7xl mx-auto px-4 py-4" id="searchContainer">
+    <div class="flex gap-4 flex-col md:flex-row">
+      <div class="relative flex-1">
+        <input type="text" id="searchInput" placeholder="Szukaj w artykułach..." class="w-full pl-12 pr-4 py-3 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500">
+        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+      </div>
+      <select id="sourceFilter" class="px-4 py-3 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800">
+        <option value="">Wszystkie źródła</option>
+      </select>
+      <button id="exportSaved" class="px-4 py-3 bg-gray-200 dark:bg-gray-700 rounded-2xl text-sm">Eksportuj zapisane</button>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 pb-12">
+    <div id="dashboard" class="hidden space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+          <h3 class="font-bold text-lg mb-2 flex items-center"><i class="fas fa-heartbeat text-red-500 mr-2"></i> Nastroje Rynkowe</h3>
+          <div id="fngValue" class="text-4xl font-bold text-indigo-600">--</div>
+          <div id="fngLabel" class="text-sm text-gray-500">Ładowanie...</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+          <h3 class="font-bold text-lg mb-4 flex items-center"><i class="fas fa-university text-blue-500 mr-2"></i> Stopy NBP</h3>
+          <div id="nbpRates" class="space-y-1 text-sm">Ładowanie...</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+          <h3 class="font-bold text-lg mb-4 flex items-center"><i class="fas fa-percentage text-orange-500 mr-2"></i> Inflacja CPI</h3>
+          <div id="cpiValue" class="text-3xl font-bold">--</div>
+          <div id="cpiLabel" class="text-xs text-gray-500">Źródło: GUS via finwire.pl</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+          <h3 class="font-bold text-lg mb-2 flex items-center"><i class="fas fa-users text-purple-500 mr-2"></i> Bezrobocie</h3>
+          <div id="unempValue" class="text-3xl font-bold">--</div>
+          <div id="unempLabel" class="text-xs text-gray-500">PL (GUS)</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+          <h3 class="font-bold text-lg mb-4"><i class="fas fa-exchange-alt text-green-500 mr-2"></i> Kursy walut NBP</h3>
+          <div id="fxRates" class="space-y-2 text-sm">Ładowanie...</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+          <h3 class="font-bold text-lg mb-4"><i class="fas fa-chart-line text-teal-500 mr-2"></i> Rentowności obligacji 10Y</h3>
+          <div id="bondYields" class="space-y-1 text-sm">Ładowanie...</div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+        <h3 class="font-bold text-lg mb-4"><i class="fas fa-calendar-alt text-green-500 mr-2"></i> Kalendarz Ekonomiczny (PL)</h3>
+        <div id="calendar" class="space-y-2 text-sm">Ładowanie...</div>
+        <p class="text-xs text-gray-400 mt-2">Źródło: finwire.pl</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+        <h3 class="font-bold text-lg mb-4">Indeksy & Rynki</h3>
+        <div id="indices" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+      </div>
+    </div>
+
+    <div id="loading" class="hidden text-center py-20"><div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div><p class="mt-4">Ładowanie...</p></div>
+    <div id="error" class="hidden text-center py-10 text-red-500">Błąd ładowania danych.</div>
+    <div id="articles" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    <div id="noResults" class="hidden text-center py-20 text-gray-500">Brak wyników.</div>
+  </main>
+
+  <footer class="bg-white dark:bg-gray-800 border-t mt-12 py-8 text-center text-sm text-gray-500">
+    <p>PulseNews — agregator newsów i panel rynkowy (wersja maksymalna)</p>
+    <p class="mt-1">Źródła RSS: Bankier, Money.pl, Puls Biznesu, BI Polska, Onet, Interia, WP, RMF24, Spider's Web, Niebezpiecznik</p>
+    <p class="mt-1">Dane makro: finwire.pl (NBP, GUS, Eurostat)</p>
+  </footer>
+
+  <script>
+    const categories = {
+      wszystkie: { label: 'Wszystkie', icon: 'fas fa-home', feeds: [] },
+      rynki: { label: 'Rynki & Wskaźniki', icon: 'fas fa-tachometer-alt', feeds: [], isDashboard: true },
+      finanse: { label: 'Finanse', icon: 'fas fa-chart-line', feeds: [
+        { name: 'Bankier.pl', url: 'https://www.bankier.pl/rss/wiadomosci.xml' },
+        { name: 'Bankier Giełda', url: 'https://www.bankier.pl/rss/gielda.xml' },
+        { name: 'Money.pl', url: 'https://www.money.pl/rss/rss.xml' },
+        { name: 'Puls Biznesu', url: 'https://www.pb.pl/rss/najnowsze.xml' },
+        { name: 'Business Insider', url: 'https://businessinsider.com.pl/.feed' }
+      ]},
+      gospodarka: { label: 'Gospodarka', icon: 'fas fa-balance-scale', feeds: [
+        { name: 'Bankier Finanse', url: 'https://www.bankier.pl/rss/finanse.xml' },
+        { name: 'Bankier Firma', url: 'https://www.bankier.pl/rss/firma.xml' },
+        { name: 'Money.pl', url: 'https://www.money.pl/rss/rss.xml' },
+        { name: 'Puls Biznesu', url: 'https://www.pb.pl/rss/najnowsze.xml' }
+      ]},
+      polityka: { label: 'Polityka', icon: 'fas fa-landmark', feeds: [
+        { name: 'Onet Wiadomości', url: 'https://wiadomosci.onet.pl/.feed' },
+        { name: 'Interia Wydarzenia', url: 'https://wydarzenia.interia.pl/feed' },
+        { name: 'WP Wiadomości', url: 'https://wiadomosci.wp.pl/rss.xml' },
+        { name: 'RMF24', url: 'https://www.rmf24.pl/feed' }
+      ]},
+      geopolityka: { label: 'Geopolityka', icon: 'fas fa-globe', feeds: [
+        { name: 'Onet Wiadomości', url: 'https://wiadomosci.onet.pl/.feed' },
+        { name: 'RMF24 Świat', url: 'https://www.rmf24.pl/fakty/swiat/feed' },
+        { name: 'Interia Wydarzenia', url: 'https://wydarzenia.interia.pl/feed' }
+      ]},
+      technologie: { label: 'Technologie', icon: 'fas fa-microchip', feeds: [
+        { name: 'Business Insider Tech', url: 'https://businessinsider.com.pl/technologie.feed' },
+        { name: "Spider's Web", url: 'https://www.spidersweb.pl/feed' },
+        { name: 'Niebezpiecznik', url: 'https://feeds.feedburner.com/niebezpiecznik/' }
+      ]}
+    };
+
+    Object.keys(categories).forEach(key => {
+      if (key !== 'wszystkie' && key !== 'rynki') categories.wszystkie.feeds.push(...categories[key].feeds);
+    });
+
+    let currentCategory = 'wszystkie';
+    let currentArticles = [];
+    const categoryNav = document.getElementById('categoryNav');
+    const articlesEl = document.getElementById('articles');
+    const loadingEl = document.getElementById('loading');
+    const searchInput = document.getElementById('searchInput');
+    const sourceFilter = document.getElementById('sourceFilter');
+    const dashboardEl = document.getElementById('dashboard');
+
+    // Theme
+    if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+    document.getElementById('themeToggle').onclick = () => {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    };
+
+    Object.entries(categories).forEach(([key, cat]) => {
+      const btn = document.createElement('button');
+      btn.className = `category-btn px-5 py-2.5 rounded-full font-medium text-sm whitespace-nowrap transition flex items-center space-x-2 ${key === 'wszystkie' ? 'active' : 'bg-gray-100 dark:bg-gray-700'}`;
+      btn.innerHTML = `<i class="${cat.icon}"></i><span>${cat.label}</span>`;
+      btn.onclick = () => selectCategory(key, btn);
+      categoryNav.appendChild(btn);
+    });
+
+    const savedBtn = document.createElement('button');
+    savedBtn.className = 'category-btn px-5 py-2.5 rounded-full font-medium text-sm whitespace-nowrap transition flex items-center space-x-2 bg-gray-100 dark:bg-gray-700';
+    savedBtn.innerHTML = '<i class="fas fa-bookmark"></i><span>Zapisane</span>';
+    savedBtn.onclick = showSaved;
+    categoryNav.appendChild(savedBtn);
+
+    function updateSavedCount() {
+      document.getElementById('savedCount').textContent = getSaved().length;
+    }
+
+    function selectCategory(key, btn) {
+      document.querySelectorAll('.category-btn').forEach(b => { b.classList.remove('active'); b.classList.add('bg-gray-100','dark:bg-gray-700'); });
+      btn.classList.add('active'); btn.classList.remove('bg-gray-100','dark:bg-gray-700');
+      currentCategory = key;
+      if (categories[key]?.isDashboard) {
+        document.getElementById('searchContainer').classList.add('hidden');
+        articlesEl.classList.add('hidden');
+        dashboardEl.classList.remove('hidden');
+        loadDashboard();
+      } else {
+        document.getElementById('searchContainer').classList.remove('hidden');
+        dashboardEl.classList.add('hidden');
+        articlesEl.classList.remove('hidden');
+        loadCategory(key);
+      }
+    }
+
+    async function fetchFeed(feed) {
+      const proxies = [
+        u => `https://proxy.cors.dev/${u}`,
+        u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
+      ];
+      for (const make of proxies) {
+        try {
+          const res = await fetch(make(feed.url), { signal: AbortSignal.timeout(12000) });
+          if (!res.ok) continue;
+          const text = await res.text();
+          if (text.length < 100) continue;
+          const xml = new DOMParser().parseFromString(text, 'text/xml');
+          if (xml.querySelector('parsererror')) continue;
+          const items = xml.querySelectorAll('item, entry');
+          return Array.from(items).slice(0, 15).map(item => ({
+            title: item.querySelector('title')?.textContent?.trim() || 'Brak tytułu',
+            link: item.querySelector('link')?.textContent?.trim() || item.querySelector('link')?.getAttribute('href') || '#',
+            description: (item.querySelector('description') || item.querySelector('summary'))?.textContent?.replace(/<[^>]+>/g,'').trim().slice(0,250) || '',
+            pubDate: new Date(item.querySelector('pubDate, published')?.textContent || Date.now()),
+            source: feed.name,
+            image: item.querySelector('enclosure')?.getAttribute('url') || item.querySelector('media\\:content, content')?.getAttribute('url') || null
+          }));
+        } catch(e) {}
+      }
+      return [];
+    }
+
+    function estimateReadingTime(text) {
+      const words = text.split(/\s+/).length;
+      return Math.max(1, Math.round(words / 200));
+    }
+
+    function simpleSentiment(title) {
+      const pos = ['wzrost', 'wzrosł', 'zysk', 'sukces', 'rekord', 'pozytywn', 'popraw', 'spadek inflacji', 'obniżk'];
+      const neg = ['spadek', 'spadł', 'strata', 'kryzys', 'recesj', 'wzrost inflacji', 'podwyżk', 'bankruct', 'ostrzeż'];
+      const t = title.toLowerCase();
+      if (pos.some(w => t.includes(w))) return { label: 'Pozytywny', cls: 'sentiment-pos' };
+      if (neg.some(w => t.includes(w))) return { label: 'Negatywny', cls: 'sentiment-neg' };
+      return { label: 'Neutralny', cls: 'sentiment-neu' };
+    }
+
+    async function loadCategory(key) {
+      loadingEl.classList.remove('hidden');
+      articlesEl.innerHTML = '';
+      const cat = categories[key];
+      if (!cat || !cat.feeds.length) { loadingEl.classList.add('hidden'); return; }
+      const results = await Promise.allSettled(cat.feeds.map(f => fetchFeed(f)));
+      currentArticles = results.flatMap(r => r.status === 'fulfilled' ? r.value : []).sort((a,b) => b.pubDate - a.pubDate);
+      const seen = new Set();
+      currentArticles = currentArticles.filter(a => { const k = a.title; if (seen.has(k)) return false; seen.add(k); return true; });
+      updateSourceFilter();
+      displayArticles(currentArticles);
+      loadingEl.classList.add('hidden');
+    }
+
+    function updateSourceFilter() {
+      const sources = [...new Set(currentArticles.map(a => a.source))];
+      sourceFilter.innerHTML = '<option value="">Wszystkie źródła</option>' + sources.map(s => `<option value="${s}">${s}</option>`).join('');
+    }
+
+    function displayArticles(articles) {
+      articlesEl.innerHTML = '';
+      if (!articles.length) { document.getElementById('noResults').classList.remove('hidden'); return; }
+      document.getElementById('noResults').classList.add('hidden');
+      articles.forEach(article => {
+        const card = document.createElement('article');
+        card.className = 'card-hover bg-white dark:bg-gray-800 rounded-2xl shadow-md overflow-hidden border border-gray-100 dark:border-gray-700 flex flex-col';
+        const dateStr = article.pubDate.toLocaleDateString('pl-PL', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+        const imgHtml = article.image ? `<img src="${article.image}" class="w-full h-48 object-cover" onerror="this.style.display='none'">` : `<div class="w-full h-48 bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center"><i class="fas fa-newspaper text-white text-5xl opacity-50"></i></div>`;
+        const sent = simpleSentiment(article.title);
+        const rt = estimateReadingTime(article.description + ' ' + article.title);
+        card.innerHTML = `
+          ${imgHtml}
+          <div class="p-5 flex-1 flex flex-col">
+            <div class="flex items-center justify-between text-xs text-gray-500 mb-2">
+              <span class="font-semibold text-indigo-600">${article.source}</span>
+              <span>${dateStr}</span>
+            </div>
+            <h3 class="font-bold text-lg leading-tight mb-2 line-clamp-2">${article.title}</h3>
+            <div class="flex gap-2 mb-2">
+              <span class="text-xs px-2 py-0.5 rounded ${sent.cls}">${sent.label}</span>
+              <span class="text-xs text-gray-400"><i class="fas fa-clock"></i> ${rt} min</span>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-300 line-clamp-3 flex-1">${article.description}</p>
+            <div class="mt-4 flex items-center justify-between">
+              <a href="${article.link}" target="_blank" class="text-indigo-600 font-medium hover:underline">Czytaj więcej <i class="fas fa-external-link-alt ml-1 text-xs"></i></a>
+              <div class="flex gap-2">
+                <button class="copy-btn text-xs text-gray-500 hover:text-indigo-600" data-link="${article.link}" title="Kopiuj link"><i class="fas fa-link"></i></button>
+                <button class="save-btn text-xs text-gray-500 hover:text-indigo-600 flex items-center" data-title="${article.title.replace(/"/g,'"')}" data-link="${article.link}" data-source="${article.source}">
+                  <i class="far fa-bookmark mr-1"></i> Zapisz
+                </button>
+              </div>
+            </div>
+          </div>`;
+        articlesEl.appendChild(card);
+      });
+    }
+
+    searchInput.oninput = () => filterAndDisplay();
+    sourceFilter.onchange = () => filterAndDisplay();
+
+    function filterAndDisplay() {
+      const q = searchInput.value.toLowerCase();
+      const src = sourceFilter.value;
+      let filtered = currentArticles;
+      if (q) filtered = filtered.filter(a => a.title.toLowerCase().includes(q) || a.description.toLowerCase().includes(q) || a.source.toLowerCase().includes(q));
+      if (src) filtered = filtered.filter(a => a.source === src);
+      displayArticles(filtered);
+    }
+
+    function getSaved() { return JSON.parse(localStorage.getItem('pulseSaved') || '[]'); }
+    function saveArticle(title, link, source) {
+      const saved = getSaved();
+      if (!saved.find(s => s.link === link)) {
+        saved.unshift({ title, link, source, date: new Date().toISOString() });
+        localStorage.setItem('pulseSaved', JSON.stringify(saved.slice(0,200)));
+        updateSavedCount();
+      }
+    }
+    document.addEventListener('click', e => {
+      const btn = e.target.closest('.save-btn');
+      if (btn) { 
+        saveArticle(btn.dataset.title, btn.dataset.link, btn.dataset.source); 
+        btn.innerHTML = '<i class="fas fa-bookmark mr-1"></i> Zapisano'; 
+        btn.disabled = true; 
+      }
+      const copy = e.target.closest('.copy-btn');
+      if (copy) {
+        navigator.clipboard.writeText(copy.dataset.link);
+        copy.innerHTML = '<i class="fas fa-check"></i>';
+        setTimeout(() => copy.innerHTML = '<i class="fas fa-link"></i>', 1500);
+      }
+    });
+
+    function showSaved() {
+      const saved = getSaved();
+      currentArticles = saved.map(s => ({ title: s.title, link: s.link, source: s.source, description: 'Zapisany artykuł', pubDate: new Date(s.date), image: null }));
+      displayArticles(currentArticles);
+      document.getElementById('searchContainer').classList.remove('hidden');
+      dashboardEl.classList.add('hidden');
+      articlesEl.classList.remove('hidden');
+      // Add clear button if not present
+      if (!document.getElementById('clearSaved')) {
+        const clear = document.createElement('button');
+        clear.id = 'clearSaved';
+        clear.className = 'mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm';
+        clear.textContent = 'Wyczyść wszystkie zapisane';
+        clear.onclick = () => { if(confirm('Usunąć wszystkie zapisane?')) { localStorage.removeItem('pulseSaved'); updateSavedCount(); showSaved(); } };
+        articlesEl.after(clear);
+      }
+    }
+
+    document.getElementById('exportSaved').onclick = () => {
+      const data = JSON.stringify(getSaved(), null, 2);
+      const blob = new Blob([data], {type: 'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'pulse-saved.json';
+      a.click();
+    };
+
+    async function loadDashboard() {
+      // F&G
+      try {
+        const res = await fetch('https://api.alternative.me/fng/?limit=1');
+        const d = await res.json();
+        document.getElementById('fngValue').textContent = d.data[0].value;
+        document.getElementById('fngLabel').textContent = d.data[0].value_classification;
+      } catch(e) {}
+
+      // NBP rates
+      try {
+        const res = await fetch('https://public-api.finwire.pl/v1/series/interest-rate');
+        const d = await res.json();
+        const rates = d.data || d;
+        document.getElementById('nbpRates').innerHTML = Object.entries(rates).slice(0,6).map(([k,v]) => `<div class="flex justify-between"><span>${k}</span><span class="font-semibold">${v}</span></div>`).join('') || 'Brak danych';
+      } catch(e) { document.getElementById('nbpRates').textContent = 'Niedostępne'; }
+
+      // CPI
+      try {
+        const res = await fetch('https://public-api.finwire.pl/v1/series/cpi?type=monthly&limit=1');
+        const d = await res.json();
+        const last = (d.data || [])[0];
+        document.getElementById('cpiValue').textContent = last ? (last.yoy || last.value || '--') + '%' : '--';
+      } catch(e) {}
+
+      // Unemployment
+      try {
+        const res = await fetch('https://public-api.finwire.pl/v1/series/unemployment');
+        const d = await res.json();
+        const pl = d.data?.poland || d.poland;
+        document.getElementById('unempValue').textContent = pl ? pl.value + '%' : '--';
+        document.getElementById('unempLabel').textContent = pl ? `YoY: ${pl.changeYoyPp > 0 ? '+' : ''}${pl.changeYoyPp} pp` : '';
+      } catch(e) {}
+
+      // FX
+      try {
+        const res = await fetch('https://public-api.finwire.pl/v1/series/fx');
+        const d = await res.json();
+        const main = (d.data?.entries || []).filter(e => ['EUR','USD','CHF','GBP'].includes(e.code));
+        document.getElementById('fxRates').innerHTML = main.map(e => `
+          <div class="flex justify-between items-center">
+            <span class="font-medium">${e.code}/PLN</span>
+            <span>${e.mid.toFixed(4)}</span>
+            <span class="${e.changePct >= 0 ? 'text-green-600' : 'text-red-600'} text-xs">${e.changePct > 0 ? '+' : ''}${e.changePct.toFixed(2)}%</span>
+          </div>`).join('') || 'Brak';
+      } catch(e) { document.getElementById('fxRates').textContent = 'Niedostępne'; }
+
+      // Bonds
+      try {
+        const res = await fetch('https://public-api.finwire.pl/v1/series/bond-yields');
+        const d = await res.json();
+        const data = d.data || d;
+        document.getElementById('bondYields').innerHTML = `
+          <div class="flex justify-between"><span>PL 10Y</span><span class="font-semibold">${data.pl || data.poland || '--'}%</span></div>
+          <div class="flex justify-between"><span>DE 10Y</span><span>${data.de || data.germany || '--'}%</span></div>
+          <div class="flex justify-between"><span>Spread PL-DE</span><span>${data.spreadPlDeBps || '--'} bps</span></div>
+        `;
+      } catch(e) { document.getElementById('bondYields').textContent = 'Niedostępne'; }
+
+      // Calendar
+      try {
+        const res = await fetch('https://public-api.finwire.pl/v1/calendar');
+        const d = await res.json();
+        const events = (d.data?.events || d.events || []).slice(0,10);
+        document.getElementById('calendar').innerHTML = events.map(e => `
+          <div class="flex justify-between border-b pb-1 text-xs md:text-sm">
+            <span>${e.date || ''} ${e.time||''}</span>
+            <span class="flex-1 mx-2">${e.title}</span>
+            <span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 rounded">${e.importance||''}</span>
+          </div>
+        `).join('') || 'Brak nadchodzących';
+      } catch(e) { document.getElementById('calendar').textContent = 'Niedostępne'; }
+
+      // Indices
+      const symbols = [
+        {sym:'^GSPC',name:'S&P500'},{sym:'^IXIC',name:'Nasdaq'},{sym:'WIG20.WA',name:'WIG20'},
+        {sym:'^GDAXI',name:'DAX'},{sym:'^FTSE',name:'FTSE100'},{sym:'GC=F',name:'Złoto'},
+        {sym:'CL=F',name:'Ropa WTI'},{sym:'EURPLN=X',name:'EUR/PLN'}
+      ];
+      let html = '';
+      for (const s of symbols) {
+        try {
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s.sym)}?range=1d&interval=1d`;
+          const res = await fetch(`https://proxy.cors.dev/${url}`);
+          const data = await res.json();
+          const price = data.chart?.result?.[0]?.meta?.regularMarketPrice;
+          const prev = data.chart?.result?.[0]?.meta?.chartPreviousClose || data.chart?.result?.[0]?.meta?.previousClose;
+          const chg = prev && price ? ((price - prev)/prev*100).toFixed(2) : null;
+          const color = chg >= 0 ? 'text-green-600' : 'text-red-600';
+          html += `<div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div class="font-semibold text-sm">${s.name}</div>
+            <div class="text-lg">${price?.toFixed(2)||'--'}</div>
+            ${chg ? `<div class="text-xs ${color}">${chg>0?'+':''}${chg}%</div>` : ''}
+          </div>`;
+        } catch(e) { html += `<div class="p-3 bg-gray-50 rounded-lg">${s.name}: --</div>`; }
+      }
+      document.getElementById('indices').innerHTML = html;
+    }
+
+    document.getElementById('refreshBtn').onclick = () => location.reload();
+
+    // Init
+    updateSavedCount();
+    loadCategory('wszystkie');
+  </script>
+</body>
+</html>
